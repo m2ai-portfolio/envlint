@@ -1,0 +1,35 @@
+{
+  "project_id": "9fd2e8ed-377d-46b8-9aaf-85bdaddee6fb",
+  "project_name": "EnvLint - CLI Environment Validator",
+  "project_slug": "ef18a349f7ae",
+  "team_id": "488a02b5-c546-4242-95fb-bf6caf038fa1",
+  "team_key": "M2A",
+  "team_name": "M2AI_Workspace",
+  "meta_issue_id": "M2A-329",
+  "total_issues": 3,
+  "issues": [
+    {
+      "id": "M2A-326",
+      "title": "Schema validation of .env files",
+      "number": 326,
+      "priority": "High",
+      "estimate": 5
+    },
+    {
+      "id": "M2A-327",
+      "title": "Usage checking for env vars in source code",
+      "number": 327,
+      "priority": "High",
+      "estimate": 5
+    },
+    {
+      "id": "M2A-328",
+      "title": "Git tracking check for .env files",
+      "number": 328,
+      "priority": "High",
+      "estimate": 3
+    }
+  ],
+  "initialized_at": "2026-03-25T21:24:18Z",
+  "session": 1
+}

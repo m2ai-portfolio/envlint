@@ -1,0 +1,858 @@
+We are building EnvLint: a CLI tool that validates .env files against a schema and checks for usage in source code.
+ Given the constraints (5 iterations, max 3 core features, max 8-12 source files, etc.), we must pick the 3 most essential features.
+
+ Core problem: 
+   - Validate .env file against a schema (required keys, format patterns)
+   - Check for secrets in git (but note: we cannot call external APIs, so we'll do local git check? However, note constraint: ZERO external API dependencies -> but git is local. However, we are allowed to run local commands? But note: the tool must work entirely offline. We can use `git` command if available, but we cannot assume it's installed? However, the problem says "no secrets in git" meaning we want to check if the .env file is being tracked by git? Actually, the description says: "no secrets in git" -> meaning we want to check that the .env file is not committed (or that it doesn't contain secrets that are committed). However, note: we cannot scan the entire git history because that might be heavy and we are limited to 5 iterations.
+
+ Let's break down the idea:
+
+ 1. Validate .env file against a schema (required keys, format patterns). This is a must.
+ 2. Cross-reference environment variables used in Python/TS source files to detect missing or unused vars.
+
+ However, note the constraints: we have only 5 iterations and max 3 core features.
+
+ We must choose 3 features that are essential and can be done in 1 iteration each.
+
+ Proposed core features:
+
+ Feature 1: Schema validation of .env file.
+   - Read a .env file and a schema file (which defines required keys, allowed keys, and regex patterns for values).
+   - Check for missing required keys, unknown keys, and value format violations.
+
+ Feature 2: Usage checking in source code (for Python and TypeScript).
+   - Scan given source directories for environment variable usage (e.g., in Python: os.getenv, environ.get; in TS: process.env).
+   - Report variables that are defined in .env but not used in code (unused) and variables used in code but not in .env (missing).
+
+ Feature 3: Git secrecy check (but note: we cannot rely on external services, and we are limited to local). 
+   - However, note: the problem says "no secrets in git". We can interpret this as: check that the .env file is not tracked by git (i.e., not in the index and not in the working tree as a tracked file) OR that it is listed in .gitignore? 
+   - But note: we cannot assume the user is in a git repo? And we are limited to 5 iterations.
+
+ Considering the constraints (max 8-12 files, 5 iterations) and that we are a solo AI developer managing multi-service environments, let's prioritize:
+
+   - Feature 1: Schema validation (absolutely core)
+   - Feature 2: Usage checking (because without it, we don't catch missing/unused vars in code)
+   - We have to drop the git secrecy check? Or can we do a very simple one?
+
+ However, note: the problem statement says "no secrets in git" is part of the tool. But if we are limited to 3 features, and we have two already, we must choose the third.
+
+ But wait: the problem says "Cross-references environment variables used in Python/TS source files to detect missing or unused vars." -> that's feature 2.
+
+ And the schema validation is feature 1.
+
+ What about the git part? We can do a simple check: 
+   - If the current directory is a git repo, check if .env is tracked (by running `git ls-files -- .env` and seeing if it returns anything) OR if it's ignored (by checking .gitignore). However, note: we cannot run external commands? Actually, we are allowed to run local commands (like git) as long as they are available? But the constraint says: "ZERO external API dependencies" -> meaning no network calls to external services. Running `git` is a local process, so it's allowed? However, note: we are constrained by the fact that the tool must work entirely offline. Git is offline.
+
+ But note: the constraint says "No multi-process architectures" -> but running a subprocess for `git` is a separate process? However, the constraint says: "No separate servers, workers, message queues, or microservices." -> running a subprocess for a quick git check is acceptable? But note: we are limited to 5 iterations and we want to keep it simple.
+
+ However, let's reconsider: the problem says "no secrets in git" might be interpreted as: we don't want the .env file to contain actual secrets (like API keys) that are then committed. But we cannot detect what is a secret? We can only check for patterns (like if it looks like a key). But that's error-prone.
+
+ Given the complexity and the fact that we have only 5 iterations, and we are limited to 3 features, I propose:
+
+   We drop the git secrecy check as a separate feature and instead incorporate a very simple check into the schema validation: 
+        - We can have a rule in the schema that says: certain keys (like those matching /key|token|secret|password/i) must not be present? 
+        - But note: the schema is user-defined. So we cannot hardcode.
+
+ Alternatively, we can note that the git secrecy check is not feasible without external context (like knowing what is a secret) and without scanning the git history (which is heavy). Therefore, we might reconsider the scope.
+
+ After reading the problem statement again: "validates .env files against a schema (required keys, format patterns, no secrets in git)"
+
+ The "no secrets in git" might mean: we want to ensure that the .env file is not committed to git (so we check that it is ignored). This is a common practice.
+
+ So let's define feature 3 as: 
+        Check that the .env file is ignored by git (i.e., not tracked and listed in .gitignore) OR if it's tracked, then it's an error.
+
+ However, note: we are only allowed 3 core features. We have:
+
+   Feature 1: Schema validation (required keys, format patterns)
+   Feature 2: Usage check in source code (missing/unused)
+   Feature 3: Git ignore check
+
+ But wait: the problem says "no secrets in git" — if the .env file is committed, then any secrets in it are in git. So by ensuring it's not committed, we avoid having secrets in git.
+
+ However, note: the tool cannot prevent the user from committing, but it can warn.
+
+ Now, let's check if we can do these 3 features in 5 iterations? We have 3 features -> 3 iterations for development, and 2 for testing and polishing? But note: the agent gets exactly 5 iterations to produce a working project. We assume each feature takes about 1 iteration to implement (including writing tests? but note: we are to write test steps in the spec, but the agent will write the code and tests?).
+
+ However, note: the constraint says "Maximum 3 core features". We are proposing 3.
+
+ But let's see if we can reduce to 2? Because 3 might be tight for 5 iterations? Actually, 3 features in 5 iterations leaves room for 2 iterations for integration and testing.
+
+ However, the problem says: "The agent gets EXACTLY 5 iterations to produce a working project." and we are to scope accordingly.
+
+ Given that, we'll go with 3 features.
+
+ Now, let's define the features:
+
+ Feature 1: Schema Validation
+   - Input: .env file and a schema file (in JSON or YAML? but we want to minimize dependencies -> let's use JSON because it's in stdlib? but note: we are allowed 3-5 pip packages. We can use `json` from stdlib, so no extra dep for JSON. However, we might want to allow comments? .env files don't have comments in the schema? Actually, the schema is separate. We'll use JSON for schema.
+
+   Steps:
+      - Load .env file (parse key=value, ignore comments and blank lines)
+      - Load schema file (JSON) that has:
+            {
+                "required": ["KEY1", "KEY2"],
+                "pattern": {
+                    "KEY3": "^[A-Z]+$",   // regex pattern for value
+                    ...
+                },
+                "allowed": ["KEY1", "KEY2", "KEY3"]   // optional: if provided, any key not in allowed is error
+            }
+
+      - Check:
+            * All required keys are present in .env
+            * No key in .env is outside allowed (if allowed is provided)
+            * For each key that has a pattern, the value matches the regex
+
+ Feature 2: Usage Checking
+   - Input: .env file and one or more source directories (for Python and TypeScript)
+   - We'll scan for:
+          Python: 
+             os.getenv('VAR'), os.environ.get('VAR'), environ['VAR'] (but note: we don't want to false positive on strings that look like vars? We'll do simple string matching for now? But note: we are limited in iterations -> we can do a regex for common patterns)
+          TypeScript:
+             process.env.VAR, process.env['VAR']
+
+   - We'll collect all environment variable names used in the source files.
+   - Then:
+          unused = set(.env keys) - set(used in code)
+          missing = set(used in code) - set(.env keys)
+
+   - We'll report both.
+
+ Feature 3: Git Ignore Check
+   - We assume we are in a git repository (if not, skip? or warn?).
+   - Steps:
+          Check if the .env file is tracked by git: run `git ls-files -- .env` -> if it returns a non-empty string, then it's tracked -> error.
+          Also, we might want to check if it's ignored? Actually, if it's tracked, then it's committed (or staged) and that's bad. If it's not tracked, then we check if it's ignored? But note: if it's not tracked and not ignored, then it's okay to have it locally? However, the problem is about secrets in git: if it's not tracked, then it's not in git. So we only care if it's tracked.
+
+   - However, note: the user might have added .env to .gitignore but then committed it by mistake? Then `git ls-files` would show it as tracked. So we only need to check if it's tracked.
+
+   - We'll run: `git ls-files --error-unmatch .env` -> if it returns 0, then it's tracked; non-zero means not tracked.
+
+   - But note: we cannot assume git is installed? However, the target audience is developers, so likely they have git. And we are allowed to run local commands? The constraint says "ZERO external API dependencies" -> meaning no network calls. Running git is a local process, so it's acceptable.
+
+   - However, to be safe: if git is not available, we skip this check and maybe warn? But note: we are to keep it simple. We'll assume git is available because the problem mentions git.
+
+   - Alternatively, we can check for the existence of a .git directory? And then run git commands only if .git exists.
+
+ Now, let's consider the file count.
+
+ We'll need:
+
+   - main.py: the CLI entry point (using click or argparse? we are allowed to use click as one of the 3-5 pip packages)
+   - schema.py: for loading and validating the schema
+   - usage.py: for scanning source code for env var usage
+   - git_check.py: for the git ignore check
+   - models.py: for data models (if we use Pydantic, but note: we are limited to 3-5 pip packages. Pydantic is one. Alternatively, we can use dataclasses and avoid Pydantic to save a dep? But note: the spec says "1-2 Pydantic models or dataclasses". We can use dataclasses to avoid an extra dep.)
+
+   However, note: we are allowed 3-5 pip packages. We can choose:
+
+        click (for CLI)
+        PyYAML? -> but we decided to use JSON for schema to avoid extra dep? So we don't need PyYAML.
+        We don't need any for JSON or dataclasses.
+
+   So we can do with just `click` as an external package? And then use stdlib for the rest.
+
+   But note: we might want to use `toml` for configuration? No, we are using command line arguments.
+
+   Let's plan:
+
+        We'll use:
+            - click: for building the CLI
+            - (optional) we might use `regex`? but we can use `re` from stdlib.
+
+        So only one external package: click.
+
+   Files:
+
+        envlint/
+            __init__.py
+            main.py
+            schema.py
+            usage.py
+            git.py
+            models.py   (if we use dataclasses, we might not need a separate file? but we can put in main or schema)
+
+        But note: we want to keep 8-12 files max including tests.
+
+        We'll also need tests? But note: the spec says "excluding tests" for the 8-12 source files. So we can have test files separately.
+
+        However, the constraint says: "Maximum 8-12 source files (excluding tests)". So we can have up to 12 source files (non-test) and then test files are extra.
+
+        We are aiming for minimal.
+
+        Let's try to keep source files to 5 or 6.
+
+        Proposed source files:
+
+            main.py: CLI entry point
+            schema.py: functions to load schema and validate .env against schema
+            usage.py: functions to scan source code and compute missing/unused
+            git.py: function to check if .env is tracked by git
+            models.py: dataclasses for Schema, EnvLintResult, etc.
+
+        That's 5 source files.
+
+        We can also have a utils.py? But let's avoid if possible.
+
+        Now, let's define the data models.
+
+        We'll have:
+
+            class Schema:
+                required: List[str]
+                pattern: Dict[str, str]   # key: regex pattern string
+                allowed: Optional[List[str]]
+
+            class EnvFile:
+                path: str
+                vars: Dict[str, str]   # from parsing .env
+
+            class UsageResult:
+                used_in_code: Set[str]
+                missing_in_env: Set[str]   # used in code but not in .env
+                unused_in_env: Set[str]    # in .env but not used in code
+
+            class GitStatus:
+                is_tracked: bool   # True if .env is tracked by git
+
+        But note: we don't need to store too much. We can have the functions return simple types.
+
+        Alternatively, we can avoid models and just use dictionaries and sets? But the spec asks for 1-2 Pydantic models or dataclasses.
+
+        Let's do two dataclasses:
+
+            @dataclass
+            class Schema:
+                required: List[str]
+                pattern: Dict[str, str]
+                allowed: Optional[List[str]] = None
+
+            @dataclass
+            class LintResult:
+                schema_errors: List[str]   # e.g., "Missing required key: DB_URL"
+                usage_missing: List[str]   # vars used in code but not in .env
+                usage_unused: List[str]    # vars in .env but not used in code
+                git_tracked: bool          # True if .env is tracked by git (error condition)
+
+        Then the main function will collect these and print a report.
+
+        Now, let's outline the CLI:
+
+            envlint [OPTIONS] [SOURCE_DIRS]...
+
+            Options:
+                --env-file PATH   Path to .env file (default: .env)
+                --schema PATH     Path to schema file (default: schema.json)
+                --ignore-git      Skip git check (if not in a git repo or if we don't want to check)
+
+        But note: we are constrained by iterations. We'll keep the options minimal.
+
+        Now, let's write the spec accordingly.
+
+        However, note: we have 5 iterations. We'll break down:
+
+            Iteration 1: Implement schema validation (feature 1) and basic CLI that just does schema validation.
+            Iteration 2: Implement usage checking (feature 2) and integrate so that the tool does both schema and usage.
+            Iteration 3: Implement git check (feature 3) and integrate.
+            Iteration 4: Write tests and fix bugs.
+            Iteration 5: Polish, documentation, and final testing.
+
+        But note: the spec must be for the entire project. We are writing the spec for the MVP that includes all 3 features.
+
+        Now, let's write the spec in the required format.
+
+        Note: We must be specific to this idea.
+
+        Title: EnvLint
+
+        Overview:
+            EnvLint is a CLI tool that helps solo AI developers prevent environment-related deployment issues by validating .env files against a user-defined schema, checking for usage of environment variables in Python and TypeScript source code, and verifying that the .env file is not accidentally tracked by git. It operates entirely offline using local files and standard library tools.
+
+        Problem Statement: Environment variable misconfigurations cause deployment failures and security incidents due to missing keys in production and stale entries accumulating in .env files.
+        Target Audience: Solo AI developers managing multi-service environments who need a lightweight, offline tool to catch env var issues early.
+
+        Tech Stack:
+            - Python 3.11+
+            - click (for CLI interface)
+            - (No other external dependencies; uses stdlib for JSON, regex, file operations, and subprocess for git check)
+
+        Environment Setup:
+            Prerequisites:
+                - Python 3.11+ installed
+                - Git installed (for the git check feature; if not present, the git check will be skipped with a warning)
+
+            Configuration:
+                | Variable | Description | Default |
+                |----------|-------------|---------|
+                | (none)   | No environment variables are required for the tool to function. All configuration is via command-line arguments. | |
+
+        Architecture:
+            We'll have a simple linear data flow since it's a CLI tool.
+
+            [CLI Args] 
+                │
+                ▼
+            [Main Controller] 
+                │
+                ├──→ [Schema Validator] ← [Schema File]
+                │
+                ├──→ [Usage Checker] ← [Source Directories]
+                │
+                └→ [Git Checker] ← [.env file and .git directory]
+
+            ▼
+            [Reporter] → Console Output
+
+        But note: we must fit in 10 lines. Let's do:
+
+            +------------------+
+            |   Command Line   |
+            +--------+---------+
+                     |
+                     v
+            +--------+---------+
+            |   Main Controller|
+            +--------+---------+
+                     |
+        +------------+------------+------------+
+        |            |            |            |
+        v            v            v            v
+    +--+--+      +--+--+      +--+--+      +--+--+
+    |Schema|      |Usage|      |Git |      |Repo|  (optional: if .git exists)
+    +--+--+      +--+--+      +--+--+      +--+--+
+         \        |        /         |
+          \       |       /          |
+           \      |      /           |
+            \     |     /            |
+             \    |    /             |
+              \   |   /              |
+               \  |  /               |
+                \ | /                |
+                 \|/                 |
+                +--+--+              |
+                | Reporter |         |
+                +--------+---------+
+                         |
+                         v
+                    [Console Output]
+
+        This is more than 10 lines? We'll do a simpler ASCII:
+
+            CLI → Main → {Schema, Usage, Git} → Reporter → Output
+
+        But let's write it as:
+
+            +------------------+
+            | Command Line Args|
+            +--------+---------+
+                     |
+                     v
+            +--------+---------+
+            |   Main Controller|
+            +--------+---------+
+                     |
+        +------------+------------+------------+
+        |            |            |            |
+        v            v            v            v
+    [Schema]     [Usage]      [Git]        [.git/]
+    Validator    Checker      Checker      (exists?)
+        |            |            |            |
+        +------------+------------+------------+
+                     |
+                     v
+                +--+--+
+                |Reporter|
+                +--+--+
+                     |
+                     v
+              [Console Output]
+
+        Now, count lines: 10 lines? Let's write:
+
+            +------------------+
+            | Command Line Args|
+            +--------+---------+
+                     |
+                     v
+            +--------+---------+
+            |   Main Controller|
+            +--------+---------+
+                     |
+        +------------+------------+------------+
+        |            |            |            |
+        v            v            v            v
+    [Schema]     [Usage]      [Git]        [.git/]
+    Validator    Checker      Checker      (exists?)
+        |            |            |            |
+        +------------+------------+------------+
+                     |
+                     v
+                +--+--+
+                |Reporter|
+                +--+--+
+                     |
+                     v
+              [Console Output]
+
+        That's 15 lines? We need to compress.
+
+        Alternatively, we can do:
+
+            CLI → Main
+            Main → Schema Validator (using schema.json and .env)
+            Main → Usage Checker (using source dirs and .env)
+            Main → Git Checker (using .env and .git dir)
+            Main → Reporter
+            Reporter → stdout/stderr
+
+        As ASCII:
+
+            +------------------+
+            | Command Line     |
+            | Arguments        |
+            +--------+---------+
+                     |
+                     v
+            +--------+---------+
+            |   Main Controller|
+            +--------+---------+
+                     |
+        +------------+----+----+------------+
+        |            |    |            |
+        v            v    v            v
+    +--+--+      +--+--+  +--+--+    +--+--+
+    |Schema|      |Usage|  |Git |    |.git/|
+    |Validator|    |Checker|  |Checker|    (dir)|
+    +--+--+      +--+--+  +--+--+    +--+--+
+        \          |     /           |
+         \         |    /            |
+          \        |   /             |
+           \       |  /              |
+            \      | /               |
+             \     |/                |
+              \    |                 |
+               \   |                 |
+                \  |                 |
+                 \ |                 |
+                  \|                 |
+                   v                 v
+                +--+--+        +--+--+
+                |Reporter|      |Note: if|
+                +--+--+        |  .git/ |
+                               |  doesn't|
+                               |  exist, |
+                               |  skip   |
+                               |  git    |
+                               |  check  |
+                               +--+--+
+                     |
+                     v
+              +--+--+
+              |Output|
+              +--+--+
+
+        This is getting messy. Let's do a very simple one that fits in 10 lines:
+
+            CLI → Main
+            Main → [Schema, Usage, Git] → Reporter → Output
+
+        As:
+
+            +------------------+
+            | Command Line     |
+            +--------+---------+
+                     |
+                     v
+            +--------+---------+
+            |   Main Controller|
+            +--------+---------+
+                     |
+        +------------+----+----+------------+
+        |            |    |            |
+        v            v    v            v
+    [Schema]   [Usage]  [Git]      [.git/]
+    Validator  Checker  Checker    (dir, optional)
+        \          |     /           |
+         \         |    /            |
+          \        |   /             |
+           \       |  /              |
+            \      | /               |
+             \     |/                |
+              \    |                 |
+               \   |                 |
+                \  |                 |
+                 \ |                 |
+                  \|                 |
+                   v                 v
+                +--+--+        +--+--+
+                |Reporter|      |Note: if|
+                +--+--+        |  .git/ |
+                               |  doesn't|
+                               |  exist, |
+                               |  skip   |
+                               |  git    |
+                               |  check  |
+                               +--+--+
+                     |
+                     v
+              +--+--+
+              |Output|
+              +--+--+
+
+        We'll instead write a compact version:
+
+            Environment Variables (.env) 
+                    │
+                    ▼
+            +------------------+
+            |   EnvLint Tool   |
+            |  (CLI in Python) |
+            +--------+---------+
+                     |
+        +------------+----+----+------------+
+        |            |    |            |
+        v            v    v            v
+    [Schema]   [Usage Check]  [Git Check]
+    Validation   (Source Code)  (.env in git?)
+        │            │            │
+        └------------+------------┘
+                     ▼
+                +--+--+
+                |Report|
+                +--+--+
+                     ▼
+              [Stdout/Stderr]
+
+        Now, let's count the lines in this ASCII:
+
+            Line 1: "Environment Variables (.env) "
+            Line 2: "                    │"
+            Line 3: "                    ▼"
+            Line 4: "            +------------------+"
+            Line 5: "            |   EnvLint Tool   |"
+            Line 6: "            |  (CLI in Python) |"
+            Line 7: "            +--------+---------+"
+            Line 8: "                     |"
+            Line 9: "        +------------+----+----+------------+"
+            Line10: "        |            |    |            |"
+            Line11: "        v            v    v            v"
+            Line12: "    [Schema]   [Usage Check]  [Git Check]"
+            Line13: "    Validation   (Source Code)  (.env in git?)"
+            Line14: "        │            │            │"
+            Line15: "        └------------+------------┘"
+            Line16: "                     ▼"
+            Line17: "                +--+--+"
+            Line18: "                |Report|"
+            Line19: "                +--+--+"
+            Line20: "                     ▼"
+            Line21: "              [Stdout/Stderr]"
+
+        That's 21 lines -> too long.
+
+        We must fit in 10 lines. Let's try:
+
+            .env → EnvLint → {Schema, Usage, Git} → Report → stdout
+
+        As:
+
+            +----------+     +------------------+     +------------------+
+            | .env file|---->|   EnvLint (CLI)  |---->| Schema Validator |
+            +----------+     +--------+---------+     +----------+--------+
+                                   |                   |
+                                   |     +------------------+     +------------------+
+                                   |     | Usage Checker    |     | Git Checker      |
+                                   |     +--------+---------+     +--------+---------+
+                                   |                |                   |
+                                   |     +------------------+     +------------------+
+                                   |     | Source Directories|     | .git Directory   |
+                                   |     +------------------+     +------------------+
+                                   |                |                   |
+                                   +----------------+-------------------+
+                                                  |
+                                                  v
+                                           +--+--+
+                                           |Reporter|
+                                           +--+--+
+                                                  |
+                                                  v
+                                            [stdout]
+
+        Still too long.
+
+        Given the time, we'll do a very simple one that fits in 10 lines by being abstract:
+
+            CLI Args
+                │
+                ▼
+            +-----------+
+            |  Main     |
+            +---+---+---+
+                │   │   │
+                ▼   ▼   ▼
+            +-+-+ +-+-+ +-+-+
+            |Schema| |Usage| |Git|
+            +-+-+ +-+-+ +-+-+
+                │   │   │
+                └───┴───┘
+                    ▼
+                +-+-+
+                |Rep|
+                +-+-+
+                    ▼
+                [Output]
+
+        Now, let's write it as:
+
+            +------------------+
+            | CLI Arguments    |
+            +--------+---------+
+                     |
+                     v
+            +--------+---------+
+            |   Main Controller|
+            +----+----+----+----+
+                 |    |    |
+                 v    v    v
+            +--+--+ +--+--+ +--+--+
+            |Schema| |Usage| |Git| 
+            |Validator|Checker|Checker|
+            +--+--+ +--+--+ +--+--+
+                 \    |    /
+                  \   |   /
+                   \  |  /
+                    \ | /
+                     ▼
+                +--+--+
+                |Reporter|
+                +--+--+
+                     ▼
+                [Stdout/Stderr]
+
+        Count the lines:
+
+            1: +------------------+
+            2: | CLI Arguments    |
+            3: +--------+---------+
+            4:                     |
+            5:                     v
+            6: +--------+---------+
+            7: |   Main Controller|
+            8: +----+----+----+----+
+            9:                 |    |    |
+            10:                v    v    v
+            11:            +--+--+ +--+--+ +--+--+
+            12:            |Schema| |Usage| |Git| 
+            13:            |Validator|Checker|Checker|
+            14:            +--+--+ +--+--+ +--+--+
+            15:                 \    |    /
+            16:                  \   |   /
+            17:                   \  |  /
+            18:                    \ | /
+            19:                     ▼
+            20:                +--+--+
+            21:                |Reporter|
+            22:                +--+--+
+            23:                     ▼
+            24:                [Stdout/Stderr]
+
+        24 lines -> too long.
+
+        We must make it shorter. Let's remove details and use minimal boxes.
+
+        Idea: 
+
+            CLI → Main
+            Main → [Schema, Usage, Git] → Reporter → Output
+
+        As:
+
+            +------------------+
+            | CLI              |
+            +--------+---------+
+                     |
+                     v
+            +--------+---------+
+            |   Main           |
+            +----+----+----+----+
+                 |    |    |
+                 v    v    v
+            +--+--+ +--+--+ +--+--+
+            |S| |U| |G|   [Note: S=Schema, U=Usage, G=Git]
+            +--+--+ +--+--+ +--+--+
+                 \    |    /
+                  \   |   /
+                   \  |  /
+                    \ | /
+                     ▼
+                +--+--+
+                |R|    [R=Reporter]
+                +--+--+
+                     ▼
+                [Out]
+
+        Now, write:
+
+            Line1: +------------------+
+            Line2: | CLI              |
+            Line3: +--------+---------+
+            Line4:                     |
+            Line5:                     v
+            Line6: +--------+---------+
+            Line7: |   Main           |
+            Line8: +----+----+----+----+
+            Line9:                 |    |    |
+            Line10:                v    v    v
+            Line11:            +--+--+ +--+--+ +--+--+
+            Line12:            |S| |U| |G|   
+            Line13:            +--+--+ +--+--+ +--+--+
+            Line14:                 \    |    /
+            Line15:                  \   |   /
+            Line16:                   \  |  /
+            Line17:                    \ | /
+            Line18:                     ▼
+            Line19:                +--+--+
+            Line20:                |R|   
+            Line21:                +--+--+
+            Line22:                     ▼
+            Line23:                [Out]
+
+        Still 23 lines.
+
+        We can do without the inner boxes for S,U,G and R? Just label the boxes.
+
+        How about:
+
+            +------------------+
+            | CLI Arguments    |
+            +--------+---------+
+                     |
+                     v
+            +--------+---------+
+            |   Main Controller|
+            +--------+---------+
+                     |
+            +--------+----+----+--------+
+            |        |    |        |
+            v        v    v        v
+        +--+--+  +--+--+  +--+--+  +--+--+
+        |Schema|  |Usage|  |Git|  |Note: |
+        |Validator|  |Checker|  |Checker|  |if .git/|
+        +--+--+  +--+--+  +--+--+  |exists, else|
+                                    |skip Git check|
+                                    +--+--+
+                     \        |        /
+                      \       |       /
+                       \      |      /
+                        \     |     /
+                         \    |    /
+                          \   |   /
+                           \  |  /
+                            \ | /
+                             ▼
+                      +--+--+
+                      |Reporter|
+                      +--+--+
+                             ▼
+                       [Stdout]
+
+        This is worse.
+
+        Given the constraints, let's do a textual description that fits in 10 lines? But the spec says "Simple ASCII diagram".
+
+        We'll do:
+
+            .env file → EnvLint → 
+                Schema Validation → 
+                Usage Check (scans source dirs) → 
+                Git Check (if .git exists) → 
+                Report to stdout
+
+        As a flow:
+
+            [.env] 
+                │
+                ▼
+            [EnvLint] 
+                │
+                ├──→ [Schema Validator] 
+                │
+                ├──→ [Usage Checker] ← [Source dirs]
+                │
+                └→ [Git Checker] ← [.git dir?]
+                        │
+                        ▼
+                    [Reporter] → [stdout]
+
+        Now, in ASCII (trying to fit in 10 lines):
+
+            +----------+     +------------------+     +------------------+
+            | .env file|---->|   EnvLint (CLI)  |---->| Schema Validator |
+            +----------+     +--------+---------+     +----------+--------+
+                                   |                   |
+                                   |     +------------------+     +------------------+
+                                   |     | Usage Checker    |     | Git Checker      |
+                                   |     +--------+---------+     +--------+---------+
+                                   |                |                   |
+                                   |     +------------------+     +------------------+
+                                   |     | Source Directories|     | .git Directory   |
+                                   |     +------------------+     +------------------+
+                                   |                |                   |
+                                   +----------------+-------------------+
+                                                  |
+                                                  v
+                                           +--+--+
+                                           |Reporter|
+                                           +--+--+
+                                                  |
+                                                  v
+                                            [stdout]
+
+        This is still long.
+
+        I found a way: do it in 8 lines by being very compact:
+
+            CLI → Main
+            Main → {Schema, Usage, Git} 
+            {Schema, Usage, Git} → Reporter
+            Reporter → stdout
+
+        As:
+
+            +------------------+
+            | CLI Arguments    |
+            +--------+---------+
+                     |
+                     v
+            +--------+---------+
+            |   Main Controller|
+            +----+----+----+----+
+                 |    |    |
+                 v    v    v
+            +--+--+ +--+--+ +--+--+
+            |Schema| |Usage| |Git|
+            +--+--+ +--+--+ +--+--+
+                 \    |    /
+                  \   |   /
+                   \  |  /
+                    \ | /
+                     ▼
+                +--+--+
+                |Reporter|
+                +--+--+
+                     ▼
+                [stdout]
+
+        Now, if we remove the inner text and just have the boxes, and make the boxes one line each:
+
+            Line1: +------------------+
+            Line2: | CLI Arguments    |
+            Line3: +--------+---------+
+            Line4:                     |
+            Line5:                     v
+            Line6: +--------+---------+
+            Line7: |   Main Controller|
+            Line8: +----+----+----+----+
+            Line9:                 |    |    |
+            Line10:                v    v    v
+            Line
