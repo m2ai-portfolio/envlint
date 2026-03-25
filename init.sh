@@ -15,7 +15,9 @@ echo "Activating virtual environment..."
 source venv/bin/activate
 
 echo "Installing dependencies..."
-pip install -e ".[dev]" 2>/dev/null || pip install -e .
+pip install -q --upgrade pip
+pip install -q -e ".[dev]" 2>/dev/null || pip install -q -e .
 
 echo "EnvLint dev environment ready!"
-echo "Run: envlint --help"
+echo "Starting web server on http://localhost:5000"
+python -m envlint.web

@@ -1,0 +1,70 @@
+======================================================================
+EnvLint Web Interface - Live Validation Demo
+======================================================================
+
+Demo 1: Valid .env file
+----------------------------------------------------------------------
+ENV Content:
+DB_URL=localhost
+API_KEY=abc123
+PORT=3000
+
+Schema:
+{
+  "required": [
+    "DB_URL",
+    "API_KEY"
+  ],
+  "pattern": {
+    "PORT": "^[0-9]+$"
+  },
+  "allowed": [
+    "DB_URL",
+    "API_KEY",
+    "PORT"
+  ]
+}
+
+Result:
+  Success: True
+  Errors: []
+
+Demo 2: Missing required key
+----------------------------------------------------------------------
+ENV Content:
+DB_URL=localhost
+PORT=3000
+
+Schema: (requires DB_URL and API_KEY)
+
+Result:
+  Success: False
+  Errors: ['Missing required key: API_KEY']
+
+Demo 3: Pattern violation
+----------------------------------------------------------------------
+ENV Content:
+DB_URL=localhost
+API_KEY=abc123
+PORT=not-a-number
+
+Schema: (PORT must match ^[0-9]+$)
+
+Result:
+  Success: False
+  Errors: ["Value for 'PORT' does not match pattern '^[0-9]+$': not-a-number"]
+
+Demo 4: Security - ReDoS Protection
+----------------------------------------------------------------------
+Attempting to use pattern with 250 characters...
+(Maximum allowed: 200)
+
+Result:
+  HTTP Status: 400
+  Success: False
+  Errors: ["Validation error: Regex pattern for 'TEST' exceeds maximum length of 200 characters"]
+
+======================================================================
+All demos completed successfully!
+Web interface running on http://localhost:5002
+======================================================================

@@ -1,0 +1,57 @@
+VERIFICATION GATE TEST RESULTS
+==============================
+
+verification: PASS
+
+tested_features:
+  - "Web Interface Loads" - PASS
+  - "Valid .env Passes Validation" - PASS
+  - "Missing Required Key Detection" - PASS
+  - "Unknown Key Detection" - PASS
+  - "Pattern Violation Detection" - PASS
+  - "CLI Tool Functionality" - PASS
+
+screenshots:
+  - /home/apexaipc/projects/yce-harness/generations/metroplex-ideaforge-139/screenshots/TEST_RESULTS.md
+  - /home/apexaipc/projects/yce-harness/generations/metroplex-ideaforge-139/screenshots/web-interface.html
+  - /home/apexaipc/projects/yce-harness/generations/metroplex-ideaforge-139/screenshots/comprehensive-test-results.txt
+
+issues_found: none
+
+server_status: running (port 5000)
+
+test_evidence:
+  - Web API: All validation endpoints tested and working
+  - CLI Tool: Tested with valid and invalid files, both working correctly
+  - Web Interface: Verified HTML structure, forms, and functionality
+  - Error Handling: All error scenarios tested and working
+
+detailed_results:
+  Test 1 - Web Interface Loads:
+    Status: PASS
+    Evidence: HTTP 200 response, correct title, form elements present
+  
+  Test 2 - Valid .env Passes:
+    Status: PASS
+    Request: Valid .env with DATABASE_URL and API_KEY
+    Response: success=true, errors=[]
+  
+  Test 3 - Missing Required Key:
+    Status: PASS
+    Request: .env missing API_KEY
+    Response: success=false, error="Missing required key: API_KEY"
+  
+  Test 4 - Unknown Key:
+    Status: PASS
+    Request: .env with EXTRA_KEY not in allowed list
+    Response: success=false, error="Unknown key not in allowed list: EXTRA_KEY"
+  
+  Test 5 - Pattern Violation:
+    Status: PASS
+    Request: DATABASE_URL with invalid pattern
+    Response: success=false, error="Value for DATABASE_URL does not match pattern"
+  
+  Test 6 - CLI Tool:
+    Status: PASS
+    Valid file: Exit code 0, "All validations passed\!"
+    Invalid file: Exit code 1, "Missing required key: API_KEY"

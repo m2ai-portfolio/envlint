@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "envlint"
+version = "0.1.0"
+description = "CLI tool for validating .env files against a schema"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.0.0",
+    "flask>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+]
+
+[project.scripts]
+envlint = "envlint.main:main"
