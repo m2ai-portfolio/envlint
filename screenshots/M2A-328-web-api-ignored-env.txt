@@ -1,0 +1,29 @@
+================================================================================
+Test 6: Web API confirms .env is properly ignored (SUCCESS)
+================================================================================
+Request: POST /validate
+{
+  "env_content": "DB_URL=localhost\nAPI_KEY=abc123\nPORT=3000",
+  "schema_content": "{\"required\": [\"DB_URL\", \"API_KEY\"], ...}",
+  "check_git": true
+}
+
+Response:
+--------
+{
+  "errors": [],
+  "git_status": {
+    "git_available": true,
+    "is_git_repo": true,
+    "is_ignored": true,
+    "is_tracked": false,
+    "message": ".env is properly ignored by git"
+  },
+  "success": true,
+  "usage_missing": [],
+  "usage_unused": [],
+  "warnings": []
+}
+
+Status: ✅ PASS (correctly confirmed .env is properly ignored via web API)
+================================================================================

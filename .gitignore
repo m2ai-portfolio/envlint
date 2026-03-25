@@ -67,3 +67,4 @@ tmp/
 .idea/
 .vscode/
 *.iml
+test.env

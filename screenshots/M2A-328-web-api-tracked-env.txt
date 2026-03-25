@@ -1,0 +1,31 @@
+================================================================================
+Test 5: Web API detects tracked .env file (ERROR - as expected)
+================================================================================
+Request: POST /validate
+{
+  "env_content": "DB_URL=localhost\nAPI_KEY=abc123\nPORT=3000",
+  "schema_content": "{\"required\": [\"DB_URL\", \"API_KEY\"], ...}",
+  "check_git": true
+}
+
+Response:
+--------
+{
+  "errors": [
+    "Git tracking error: .env file is tracked by git (should be in .gitignore)"
+  ],
+  "git_status": {
+    "git_available": true,
+    "is_git_repo": true,
+    "is_ignored": false,
+    "is_tracked": true,
+    "message": "WARNING: .env is tracked by git (security risk!)"
+  },
+  "success": false,
+  "usage_missing": [],
+  "usage_unused": [],
+  "warnings": []
+}
+
+Status: ✅ PASS (correctly detected tracked .env via web API)
+================================================================================

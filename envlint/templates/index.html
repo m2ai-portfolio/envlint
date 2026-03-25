@@ -83,6 +83,49 @@
             border-color: #667eea;
         }
 
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            margin-bottom: 0;
+            cursor: pointer;
+        }
+
+        .git-status-box {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid;
+        }
+
+        .git-status-box.tracked {
+            background: #f8d7da;
+            border-color: #dc3545;
+            color: #721c24;
+        }
+
+        .git-status-box.ignored {
+            background: #d4edda;
+            border-color: #28a745;
+            color: #155724;
+        }
+
+        .git-status-box.not-in-repo {
+            background: #e2e3e5;
+            border-color: #6c757d;
+            color: #383d41;
+        }
+
         label {
             font-weight: 600;
             margin-bottom: 8px;
@@ -288,6 +331,11 @@ PORT=3000</textarea>
                 </div>
             </div>
 
+            <div class="checkbox-group">
+                <input type="checkbox" id="checkGit" name="checkGit" checked>
+                <label for="checkGit">Check git tracking (only works if running locally with git repository)</label>
+            </div>
+
             <button type="submit">Validate</button>
         </form>
 
@@ -314,6 +362,7 @@ PORT=3000</textarea>
             const schemaContent = document.getElementById('schemaContent').value;
             const sourceContent = document.getElementById('sourceContent').value;
             const language = document.getElementById('language').value;
+            const checkGit = document.getElementById('checkGit').checked;
 
             try {
                 const response = await fetch('/validate', {
@@ -325,7 +374,8 @@ PORT=3000</textarea>
                         env_content: envContent,
                         schema_content: schemaContent,
                         source_code: sourceContent,
-                        language: language
+                        language: language,
+                        check_git: checkGit
                     })
                 });
 
@@ -344,6 +394,29 @@ PORT=3000</textarea>
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        function displayGitStatus(gitStatus) {
+            if (!gitStatus) return null;
+
+            const gitBox = document.createElement('div');
+            gitBox.className = 'git-status-box';
+
+            if (gitStatus.is_tracked) {
+                gitBox.classList.add('tracked');
+                gitBox.textContent = '❌ ' + gitStatus.message;
+            } else if (gitStatus.is_ignored) {
+                gitBox.classList.add('ignored');
+                gitBox.textContent = '✅ ' + gitStatus.message;
+            } else if (gitStatus.is_git_repo) {
+                gitBox.classList.add('not-in-repo');
+                gitBox.textContent = '💡 ' + gitStatus.message;
+            } else {
+                gitBox.classList.add('not-in-repo');
+                gitBox.textContent = '💡 ' + gitStatus.message;
+            }
+
+            return gitBox;
         }
 
         function displayResults(data) {
@@ -376,6 +449,12 @@ PORT=3000</textarea>
                     });
 
                     resultsContent.appendChild(ul);
+
+                    // Add git status if available
+                    if (data.git_status) {
+                        const gitBox = displayGitStatus(data.git_status);
+                        if (gitBox) resultsContent.appendChild(gitBox);
+                    }
                 } else {
                     resultsDiv.classList.add('success');
                     document.querySelector('.icon').textContent = '✅';
@@ -386,6 +465,12 @@ PORT=3000</textarea>
                     const p = document.createElement('p');
                     p.textContent = 'All validations passed successfully.';
                     resultsContent.appendChild(p);
+
+                    // Add git status if available
+                    if (data.git_status) {
+                        const gitBox = displayGitStatus(data.git_status);
+                        if (gitBox) resultsContent.appendChild(gitBox);
+                    }
                 }
             } else {
                 resultsDiv.classList.add('error');
@@ -431,6 +516,12 @@ PORT=3000</textarea>
                     });
 
                     resultsContent.appendChild(warnUl);
+                }
+
+                // Add git status if available
+                if (data.git_status) {
+                    const gitBox = displayGitStatus(data.git_status);
+                    if (gitBox) resultsContent.appendChild(gitBox);
                 }
             }
         }

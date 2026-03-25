@@ -1,0 +1,18 @@
+================================================================================
+Test 4: CLI gracefully handles non-git directory (SUCCESS)
+================================================================================
+Command: python -m envlint.main --env-file test.env --schema test-schema.json
+Working directory: /tmp/test-envlint (no .git directory)
+
+Output:
+--------
+🔍 EnvLint - Validating test.env against test-schema.json
+
+💡 Git check: Not in a git repository
+
+✅ All validations passed!
+
+Exit code: 0
+
+Status: ✅ PASS (gracefully handles non-git environment)
+================================================================================

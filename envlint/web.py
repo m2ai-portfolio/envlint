@@ -5,6 +5,7 @@ from flask import Flask, render_template, request, jsonify
 from .schema import parse_env_content, load_schema_from_dict, validate_schema
 from .models import Schema
 from .usage import scan_source_content, check_usage
+from .git import check_git_tracking_safe
 
 app = Flask(__name__)
 
@@ -44,6 +45,7 @@ def validate():
         - schema_content: JSON string of schema
         - source_code: (optional) source code content to check usage
         - language: (optional) language of source code ("python" or "typescript")
+        - check_git: (optional) boolean to enable git tracking check
 
     Returns JSON with:
         - success: boolean
@@ -51,6 +53,7 @@ def validate():
         - warnings: list of warning messages
         - usage_missing: list of variables used in code but not in .env
         - usage_unused: list of variables in .env but not used in code
+        - git_status: (optional) git tracking information
     """
     try:
         data = request.get_json()
@@ -58,6 +61,7 @@ def validate():
         schema_content = data.get('schema_content', '')
         source_code = data.get('source_code', '')
         language = data.get('language', 'python')
+        check_git = data.get('check_git', False)
 
         # Validate language parameter
         VALID_LANGUAGES = ['python', 'typescript', 'javascript', 'ts', 'js']
@@ -106,26 +110,33 @@ def validate():
             for var in usage_missing:
                 errors.append(f"Variable used in code but missing from .env: {var}")
 
+        # Git tracking check if enabled
+        git_status = None
+        if check_git:
+            # Check server-side .env file (informational only)
+            git_status = check_git_tracking_safe(".env")
+            # Add note that this is server-side check
+            git_status["note"] = "Git check performed on server-side .env file"
+            if git_status["is_tracked"]:
+                errors.append("Git tracking error: .env file is tracked by git (should be in .gitignore)")
+
         # Sanitize error messages to prevent path leakage
         sanitized_errors = [sanitize_error_message(err) for err in errors]
         sanitized_warnings = [f"Unused variable in .env: {var}" for var in usage_unused]
 
-        if sanitized_errors:
-            return jsonify({
-                'success': False,
-                'errors': sanitized_errors,
-                'warnings': sanitized_warnings,
-                'usage_missing': usage_missing,
-                'usage_unused': usage_unused
-            })
-        else:
-            return jsonify({
-                'success': True,
-                'errors': [],
-                'warnings': sanitized_warnings,
-                'usage_missing': [],
-                'usage_unused': usage_unused
-            })
+        response_data = {
+            'success': not sanitized_errors,
+            'errors': sanitized_errors,
+            'warnings': sanitized_warnings,
+            'usage_missing': usage_missing,
+            'usage_unused': usage_unused
+        }
+
+        # Add git status if checked
+        if git_status:
+            response_data['git_status'] = git_status
+
+        return jsonify(response_data)
 
     except ValueError as e:
         # Sanitize error message

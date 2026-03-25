@@ -1,0 +1,17 @@
+================================================================================
+Test 3: CLI with --no-git-check flag (SUCCESS)
+================================================================================
+Command: python -m envlint.main --env-file .env --schema test-schema.json --no-git-check
+
+Output:
+--------
+🔍 EnvLint - Validating .env against test-schema.json
+
+✅ All validations passed!
+
+Exit code: 0
+
+Note: No git check performed when --no-git-check flag is used
+
+Status: ✅ PASS (git check successfully skipped)
+================================================================================

@@ -1,0 +1,17 @@
+================================================================================
+Test 2: CLI confirms .env is properly ignored (SUCCESS)
+================================================================================
+Command: python -m envlint.main --env-file .env --schema test-schema.json
+
+Output:
+--------
+🔍 EnvLint - Validating .env against test-schema.json
+
+✅ Git check: .env is properly ignored by git
+
+✅ All validations passed!
+
+Exit code: 0
+
+Status: ✅ PASS (correctly confirmed .env is in .gitignore)
+================================================================================

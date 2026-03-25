@@ -6,6 +6,7 @@ from pathlib import Path
 from .schema import lint_env_file, parse_env_file
 from .models import LintResult
 from .usage import scan_source_directory, check_usage
+from .git import check_git_tracking
 
 
 def print_result(result: LintResult) -> None:
@@ -33,10 +34,10 @@ def print_result(result: LintResult) -> None:
         for warning in result.usage_unused:
             click.secho(f"  • Unused variable in .env: {warning}", fg='yellow')
 
-    # Print git tracking warning
+    # Print git tracking error
     if result.git_tracked:
-        click.secho("\n⚠️  Git Warning:", fg='yellow', bold=True)
-        click.secho("  • .env file is tracked by git (should be in .gitignore)", fg='yellow')
+        click.secho("\n❌ Git Tracking Error:", fg='red', bold=True)
+        click.secho("  • .env file is tracked by git (should be in .gitignore)", fg='red')
 
     # Print success if no errors
     if not result.has_errors and not result.has_warnings:
@@ -69,18 +70,43 @@ def print_result(result: LintResult) -> None:
               multiple=True,
               help='Source directory to scan for env var usage (can be specified multiple times)',
               type=click.Path(exists=True))
-def main(env_file: str, schema: str, source_dir: tuple) -> None:
+@click.option('--no-git-check',
+              is_flag=True,
+              help='Skip git tracking check')
+def main(env_file: str, schema: str, source_dir: tuple, no_git_check: bool) -> None:
     """
     EnvLint - Validate .env files against a schema.
 
     Checks for missing required keys, unknown keys, and pattern violations.
     Optionally scans source directories to find unused/missing environment variables.
+    Checks if .env file is tracked by git (can be disabled with --no-git-check).
     """
     click.secho(f"\n🔍 EnvLint - Validating {env_file} against {schema}\n",
                fg='cyan', bold=True)
 
     # Run schema validation
     result = lint_env_file(env_file, schema)
+
+    # Run git tracking check (unless disabled)
+    if not no_git_check:
+        try:
+            git_status = check_git_tracking(env_file)
+
+            # If git is available and we're in a git repo, check tracking status
+            if git_status["is_git_repo"]:
+                if git_status["is_tracked"]:
+                    result.git_tracked = True
+                    click.secho(f"\n⚠️  Git check: {git_status['message']}", fg='yellow')
+                elif git_status["is_ignored"]:
+                    click.secho(f"\n✅ Git check: {git_status['message']}", fg='green')
+                else:
+                    click.secho(f"\n💡 Git check: {git_status['message']}", fg='cyan')
+            else:
+                # Not in a git repo - just inform user
+                click.secho(f"\n💡 Git check: {git_status['message']}", fg='cyan')
+        except Exception as e:
+            # Don't fail the entire lint if git check fails
+            click.secho(f"\n⚠️  Git check failed: {e}", fg='yellow')
 
     # Run usage checking if source directories provided
     if source_dir:

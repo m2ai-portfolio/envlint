@@ -1,0 +1,20 @@
+================================================================================
+Test 1: CLI detects tracked .env file (ERROR - as expected)
+================================================================================
+Command: python -m envlint.main --env-file .env --schema test-schema.json
+
+Output:
+--------
+🔍 EnvLint - Validating .env against test-schema.json
+
+⚠️  Git check: WARNING: .env is tracked by git (security risk!)
+
+❌ Git Tracking Error:
+  • .env file is tracked by git (should be in .gitignore)
+
+Total: 1 error(s), 0 warning(s)
+
+Exit code: 1
+
+Status: ✅ PASS (correctly detected security risk)
+================================================================================
