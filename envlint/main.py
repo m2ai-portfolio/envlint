@@ -3,8 +3,9 @@
 import sys
 import click
 from pathlib import Path
-from .schema import lint_env_file
+from .schema import lint_env_file, parse_env_file
 from .models import LintResult
+from .usage import scan_source_directory, check_usage
 
 
 def print_result(result: LintResult) -> None:
@@ -20,11 +21,17 @@ def print_result(result: LintResult) -> None:
         for error in result.schema_errors:
             click.secho(f"  • {error}", fg='red')
 
-    # Print warnings
+    # Print usage errors (missing vars)
+    if result.usage_missing:
+        click.secho("\n❌ Usage Errors:", fg='red', bold=True)
+        for var in result.usage_missing:
+            click.secho(f"  • Variable used in code but missing from .env: {var}", fg='red')
+
+    # Print warnings (unused vars)
     if result.usage_unused:
         click.secho("\n⚠️  Warnings:", fg='yellow', bold=True)
         for warning in result.usage_unused:
-            click.secho(f"  • Unused variable: {warning}", fg='yellow')
+            click.secho(f"  • Unused variable in .env: {warning}", fg='yellow')
 
     # Print git tracking warning
     if result.git_tracked:
@@ -58,17 +65,53 @@ def print_result(result: LintResult) -> None:
               default='schema.json',
               help='Path to schema JSON file (default: schema.json)',
               type=click.Path(exists=True))
-def main(env_file: str, schema: str) -> None:
+@click.option('--source-dir',
+              multiple=True,
+              help='Source directory to scan for env var usage (can be specified multiple times)',
+              type=click.Path(exists=True))
+def main(env_file: str, schema: str, source_dir: tuple) -> None:
     """
     EnvLint - Validate .env files against a schema.
 
     Checks for missing required keys, unknown keys, and pattern violations.
+    Optionally scans source directories to find unused/missing environment variables.
     """
     click.secho(f"\n🔍 EnvLint - Validating {env_file} against {schema}\n",
                fg='cyan', bold=True)
 
-    # Run validation
+    # Run schema validation
     result = lint_env_file(env_file, schema)
+
+    # Run usage checking if source directories provided
+    if source_dir:
+        click.secho("📂 Scanning source directories for environment variable usage...\n",
+                   fg='cyan')
+
+        try:
+            # Scan all provided source directories
+            used_vars = set()
+            for dir_path in source_dir:
+                # Resolve path to handle symlinks and normalize
+                real_path = Path(dir_path).resolve()
+                click.echo(f"  Scanning: {real_path}")
+                found_vars = scan_source_directory(str(real_path))
+                used_vars.update(found_vars)
+
+            click.echo(f"\n  Found {len(used_vars)} unique environment variable(s) in source code\n")
+
+            # Parse env file to get current variables
+            env_vars = parse_env_file(env_file)
+
+            # Check for missing and unused variables
+            missing, unused = check_usage(env_vars, used_vars)
+
+            # Update result
+            result.usage_missing = missing
+            result.usage_unused = unused
+
+        except ValueError as e:
+            click.secho(f"\n❌ Error during usage checking: {e}", fg='red')
+            sys.exit(1)
 
     # Print results
     print_result(result)
